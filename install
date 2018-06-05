@@ -1,14 +1,41 @@
 #!/bin/bash
 
-############### Configuration
-# Site that will be loaded as default after KIOSK start.
-url=$1
-############### /Configuration
+# rm -f kiosk.sh; curl -O -L -J https://www.dropbox.com/s/h3xbkxwi3m3sw2w/kiosk.sh?dl=1; sh kiosk.sh
 
+############### Configuration
+
+url=$1
+#Site that will be loaded as default after KIOSK start.
+
+log=/var/log/make-kiosk.log
+# The directiry and file name where log output will be saved.
+# You may specify any location because script run from root account.
+
+user=$( whoami )
+# User name that run the script. No reasons to change it.
+# Used only for testing.
+
+############### End of configuration options
+
+# echo "Adding user kiosk."
 useradd kiosk
 
-echo "Installing X Window system with GDM/Gnome/Matchbox. It will take very long!!! Be patient!!! Downloading up to ~300MB"
-yum -y gdm matchbox-window-manager rsync gnome-session-xsession
+#echo "Installing X Window system with GDM/Gnome/Matchbox. It will take very long!!! Be patient!!! Downloading up to ~300MB"
+#yum -y groupinstall basic-desktop x11 fonts base-x
+#yum -y install gdm
+
+# yum-cron
+yum install -y yum-cron
+sed -i "s/update_cmd = default/update_cmd = security/" /etc/yum/yum-cron.conf
+sed -i "s/apply_updates = no/apply_updates = yes/" /etc/yum/yum-cron.conf
+sed -i "s/emit_via = stdio/emit_via = email/" /etc/yum/yum-cron.conf
+sed -i "s/email_to = root/email_to = sysadmin@rubysystems.net/" /etc/yum/yum-cron.conf
+
+systemctl start yum-cron
+systemctl enable yum-cron
+
+# packages
+yum -y install matchbox-window-manager rsync install gnome-session-xsession install xorg-x11-xinit-session
 
 # chrome repo
 rm -f /etc/yum.repos.d/google-chrome.repo
@@ -20,77 +47,95 @@ echo "gpgcheck=1" >> /etc/yum.repos.d/google-chrome.repo
 echo "gpgkey=https://dl-ssl.google.com/linux/linux_signing_key.pub" >> /etc/yum.repos.d/google-chrome.repo
 
 yum update -y
+yum install -y google-chrome-stable
 
-# install yum-cron, chrome
-yum install -y google-chrome-stable yum-cron
-
-# yum-cron settings
-sed -i "s/update_cmd = default/update_cmd = security/" /etc/yum/yum-cron.conf
-sed -i "s/apply_updates = no/apply_updates = yes/" /etc/yum/yum-cron.conf
-sed -i "s/emit_via = stdio/emit_via = email/" /etc/yum/yum-cron.conf
-sed -i "s/email_to = root/email_to = sysadmin@rubysystems.net/" /etc/yum/yum-cron.conf
-
-systemctl start yum-cron
-systemctl enable yum-cron
-
+echo "Operation done in 85%"
+echo "Configuring login manager (GDM), adding lines for autologin kiosk user."
 autologin=$( cat /etc/gdm/custom.conf | grep AutomaticLoginEnable=true )
 loginname=$( cat /etc/gdm/custom.conf | grep AutomaticLogin=kiosk )
-
 if [ -n "$autologin" ]
 then
+    echo "File is already configured for automatic login."
+    echo "Current automatic login config:"
     grep AutomaticLoginEnable /etc/gdm/custom.conf
+    echo ""
+    echo "Check the GDM file /etc/gdm/custom.conf."
+    echo "Aborting adding AutomaticLoginEnable=true!"
     cat /etc/gdm/custom.conf
 else
+    echo "Adding line to /etc/gdm/custom.conf for automatic login."
+    echo "Adding line to /etc/gdm/custom.conf for automatic login."
     sed -i '/daemon]/aAutomaticLoginEnable=true' /etc/gdm/custom.conf
 fi
-
 if [ -n "$loginname" ]
 then
+    echo "File is already configured for user kiosk to autologin."
+    echo "Aborting adding AutomaticLogin=kiosk!"
     grep AutomaticLogin /etc/gdm/custom.conf
 else
+    echo "Adding line to /etc/gdm/custom.conf for login user name."
+    echo "Adding line to /etc/gdm/custom.conf for login user name."
     sed -i '/AutomaticLoginEnable=true/aAutomaticLogin=kiosk' /etc/gdm/custom.conf
 fi
 
-sed -i '/AutomaticLogin=kiosk/aDefaultSession=xinit-compat.desktop' /etc/gdm/custom.conf
+    echo "Adding line to /etc/gdm/custom.conf for default X Session in EL7."
+    echo "And creating session file for specific user in /var/lib/AccountsService/users/kiosk."
+    sed -i '/AutomaticLogin=kiosk/aDefaultSession=xinit-compat.desktop' /etc/gdm/custom.conf
+    touch /var/lib/AccountsService/users/kiosk
+    chmod 644 /var/lib/AccountsService/users/kiosk
+    echo "[User]" >> /var/lib/AccountsService/users/kiosk
+    echo "Language=" >> /var/lib/AccountsService/users/kiosk
+    echo "XSession=xinit-compat" >> /var/lib/AccountsService/users/kiosk
+    echo "SystemAccount=false" >> /var/lib/AccountsService/users/kiosk
 
-# settings
-touch /var/lib/AccountsService/users/kiosk
-chmod 644 /var/lib/AccountsService/users/kiosk
-echo "[User]" >> /var/lib/AccountsService/users/kiosk
-echo "Language=" >> /var/lib/AccountsService/users/kiosk
-echo "XSession=xinit-compat" >> /var/lib/AccountsService/users/kiosk
-echo "SystemAccount=false" >> /var/lib/AccountsService/users/kiosk
+echo "Operation done in 90%"
+echo "Configuring system to start in graphical mode."
+echo "Configuring system to start in graphical mode."
 
+echo "Current starting mode in EL7 (text or graphical is:"
 systemctl get-default
+echo "Setting up graphical boot in EL7."
 systemctl set-default graphical.target
+
+echo "Operation done in 93%"
+echo "Disabling firstboot."
+echo "Disabling firstboot."
 echo "RUN_FIRSTBOOT=NO" > /etc/sysconfig/firstboot
+echo "Operation done in 94%"
 
-## set screen to never go off
-# export DISPLAY=:0.0
-# echo "xset s off" > /home/kiosk/.xsession
-# echo "xset -dpms" >> /home/kiosk/.xsession
-
-# set screen to 30 minutes
-echo "xset s blank" > /home/kiosk/.xsession
-echo "xset dpms 1800 0 0" >> /home/kiosk/.xsession
-
+echo "Generating Opera 12 browser startup config file."
+echo "xset s off" > /home/kiosk/.xsession
+echo "xset -dpms" >> /home/kiosk/.xsession
 echo "matchbox-window-manager &" >> /home/kiosk/.xsession
 echo "while true; do" >> /home/kiosk/.xsession
 echo "rsync -qr --delete --exclude='.Xauthority' /opt/kiosk/ /home/kiosk/" >> /home/kiosk/.xsession
 echo "google-chrome --no-default-browser-check --no-first-run --disable-infobars --disable-session-crashed-bubble --incognito --kiosk $url" >> /home/kiosk/.xsession
 echo "done" >> /home/kiosk/.xsession
+mkdir /home/kiosk/.opera
+touch /home/kiosk/.opera/operaprefs.ini
+echo "[State]" >> /home/kiosk/.opera/operaprefs.ini
+echo "Accept License=1" >> /home/kiosk/.opera/operaprefs.ini
+chown kiosk:kiosk /home/kiosk/.opera
+chown kiosk:kiosk /home/kiosk/.opera/operaprefs.ini
 chmod +x /home/kiosk/.xsession
 ln -s /home/kiosk/.xsession /home/kiosk/.xinitrc
 chown kiosk:kiosk /home/kiosk/.xsession
-
+echo "Creating desktop profile session file."
+echo "Creating .dmrc desktop profile session file."
 echo "[Desktop]" > /home/kiosk/.dmrc
 echo "Session=xinit-compat" >> /home/kiosk/.dmrc
 echo "Language=$LANG" >> /home/kiosk/.dmrc
 chown kiosk:kiosk /home/kiosk/.dmrc
 
+echo "Operation done in 96%"
+echo "Copying files for reseting every user restart."
 cp -r /home/kiosk /opt/
 chmod 755 /opt/kiosk
 chown kiosk:kiosk -R /opt/kiosk
+echo "Operation done in 100%"
+echo "Mission completed!"
+echo ""
+echo -e "\e[39mThank You."
 
 sed -i "s/GRUB_TIMEOUT=5/GRUB_TIMEOUT=0/" /etc/default/grub
 grub2-mkconfig --output=/boot/grub2/grub.cfg
