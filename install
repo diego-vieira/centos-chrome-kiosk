@@ -356,7 +356,7 @@ echo "xset -dpms" >> /home/kiosk/.xsession
 echo "matchbox-window-manager &" >> /home/kiosk/.xsession
 echo "while true; do" >> /home/kiosk/.xsession
 echo "rsync -qr --delete --exclude='.Xauthority' /opt/kiosk/ /home/kiosk/" >> /home/kiosk/.xsession
-echo "opera -nomail -noprint -noexit -nochangebuttons -nosave -nodownload -nomaillinks -nomenu -nominmaxbuttons -nocontextmenu -resetonexit -nosession $mainsite" >> /home/kiosk/.xsession
+echo "google-chrome --no-default-browser-check --no-first-run --disable-infobars --disable-session-crashed-bubble --incognito --kiosk $mainsite" >> /home/kiosk/.xsession
 echo "done" >> /home/kiosk/.xsession
 mkdir /home/kiosk/.opera
 touch /home/kiosk/.opera/operaprefs.ini
@@ -407,6 +407,4 @@ echo -e "\e[92mUse \e[93mCTRL+ALT+F2 \e[92mto go to console in KIOSK mode!!!"
 echo -e "\e[39mThank You."
 echo "Marcin Wilk"
 echo "Job done!" >> $log
-
-sed -i "s/GRUB_TIMEOUT=5/GRUB_TIMEOUT=0/" /etc/default/grub
-grub2-mkconfig --output=/boot/grub2/grub.cfg
+sleep 6
