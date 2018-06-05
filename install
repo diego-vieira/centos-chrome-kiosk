@@ -1,36 +1,14 @@
 #!/bin/bash
 
 ############### Configuration
-
+# Site that will be loaded as default after KIOSK start.
 url=$1
-#Site that will be loaded as default after KIOSK start.
+############### /Configuration
 
-log=/var/log/make-kiosk.log
-# The directiry and file name where log output will be saved.
-# You may specify any location because script run from root account.
-
-user=$( whoami )
-# User name that run the script. No reasons to change it.
-# Used only for testing.
-
-############### End of configuration options
-
-# Adding user kiosk
 useradd kiosk
 
-#echo "Installing X Window system with GDM/Gnome/Matchbox. It will take very long!!! Be patient!!! Downloading up to ~300MB"
-#yum -y groupinstall basic-desktop x11 fonts base-x
-#yum -y install gdm
-
-# yum-cron
-yum install -y yum-cron
-sed -i "s/update_cmd = default/update_cmd = security/" /etc/yum/yum-cron.conf
-sed -i "s/apply_updates = no/apply_updates = yes/" /etc/yum/yum-cron.conf
-sed -i "s/emit_via = stdio/emit_via = email/" /etc/yum/yum-cron.conf
-sed -i "s/email_to = root/email_to = sysadmin@rubysystems.net/" /etc/yum/yum-cron.conf
-
-systemctl start yum-cron
-systemctl enable yum-cron
+echo "Installing X Window system with GDM/Gnome/Matchbox. It will take very long!!! Be patient!!! Downloading up to ~300MB"
+yum -y gdm matchbox-window-manager rsync gnome-session-xsession
 
 # chrome repo
 rm -f /etc/yum.repos.d/google-chrome.repo
@@ -42,7 +20,18 @@ echo "gpgcheck=1" >> /etc/yum.repos.d/google-chrome.repo
 echo "gpgkey=https://dl-ssl.google.com/linux/linux_signing_key.pub" >> /etc/yum.repos.d/google-chrome.repo
 
 yum update -y
-yum install -y google-chrome-stable
+
+# install yum-cron, chrome
+yum install -y google-chrome-stable yum-cron
+
+# yum-cron settings
+sed -i "s/update_cmd = default/update_cmd = security/" /etc/yum/yum-cron.conf
+sed -i "s/apply_updates = no/apply_updates = yes/" /etc/yum/yum-cron.conf
+sed -i "s/emit_via = stdio/emit_via = email/" /etc/yum/yum-cron.conf
+sed -i "s/email_to = root/email_to = sysadmin@rubysystems.net/" /etc/yum/yum-cron.conf
+
+systemctl start yum-cron
+systemctl enable yum-cron
 
 autologin=$( cat /etc/gdm/custom.conf | grep AutomaticLoginEnable=true )
 loginname=$( cat /etc/gdm/custom.conf | grep AutomaticLogin=kiosk )
