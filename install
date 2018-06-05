@@ -1,0 +1,101 @@
+#!/bin/bash
+
+############### Configuration
+
+url=$1
+#Site that will be loaded as default after KIOSK start.
+
+log=/var/log/make-kiosk.log
+# The directiry and file name where log output will be saved.
+# You may specify any location because script run from root account.
+
+user=$( whoami )
+# User name that run the script. No reasons to change it.
+# Used only for testing.
+
+############### End of configuration options
+
+# Adding user kiosk
+useradd kiosk
+
+#echo "Installing X Window system with GDM/Gnome/Matchbox. It will take very long!!! Be patient!!! Downloading up to ~300MB"
+#yum -y groupinstall basic-desktop x11 fonts base-x
+#yum -y install gdm
+
+# yum-cron
+yum install -y yum-cron
+sed -i "s/update_cmd = default/update_cmd = security/" /etc/yum/yum-cron.conf
+sed -i "s/apply_updates = no/apply_updates = yes/" /etc/yum/yum-cron.conf
+sed -i "s/emit_via = stdio/emit_via = email/" /etc/yum/yum-cron.conf
+sed -i "s/email_to = root/email_to = sysadmin@rubysystems.net/" /etc/yum/yum-cron.conf
+
+systemctl start yum-cron
+systemctl enable yum-cron
+
+# packages
+yum -y install matchbox-window-manager rsync install gnome-session-xsession install xorg-x11-xinit-session
+
+# chrome repo
+rm -f /etc/yum.repos.d/google-chrome.repo
+echo "[google-chrome]" >> /etc/yum.repos.d/google-chrome.repo
+echo "name=google-chrome" >> /etc/yum.repos.d/google-chrome.repo
+echo "baseurl=http://dl.google.com/linux/chrome/rpm/stable/\$basearch" >> /etc/yum.repos.d/google-chrome.repo
+echo "enabled=1" >> /etc/yum.repos.d/google-chrome.repo
+echo "gpgcheck=1" >> /etc/yum.repos.d/google-chrome.repo
+echo "gpgkey=https://dl-ssl.google.com/linux/linux_signing_key.pub" >> /etc/yum.repos.d/google-chrome.repo
+
+yum update -y
+yum install -y google-chrome-stable
+
+autologin=$( cat /etc/gdm/custom.conf | grep AutomaticLoginEnable=true )
+loginname=$( cat /etc/gdm/custom.conf | grep AutomaticLogin=kiosk )
+
+if [ -n "$autologin" ]
+then
+    grep AutomaticLoginEnable /etc/gdm/custom.conf
+    cat /etc/gdm/custom.conf
+else
+    sed -i '/daemon]/aAutomaticLoginEnable=true' /etc/gdm/custom.conf
+fi
+
+if [ -n "$loginname" ]
+then
+    grep AutomaticLogin /etc/gdm/custom.conf
+else
+    sed -i '/AutomaticLoginEnable=true/aAutomaticLogin=kiosk' /etc/gdm/custom.conf
+fi
+
+# settings
+sed -i '/AutomaticLogin=kiosk/aDefaultSession=xinit-compat.desktop' /etc/gdm/custom.conf
+touch /var/lib/AccountsService/users/kiosk
+chmod 644 /var/lib/AccountsService/users/kiosk
+echo "[User]" >> /var/lib/AccountsService/users/kiosk
+echo "Language=" >> /var/lib/AccountsService/users/kiosk
+echo "XSession=xinit-compat" >> /var/lib/AccountsService/users/kiosk
+echo "SystemAccount=false" >> /var/lib/AccountsService/users/kiosk
+
+systemctl get-default
+systemctl set-default graphical.target
+echo "RUN_FIRSTBOOT=NO" > /etc/sysconfig/firstboot
+echo "xset s off" > /home/kiosk/.xsession
+echo "xset -dpms" >> /home/kiosk/.xsession
+echo "matchbox-window-manager &" >> /home/kiosk/.xsession
+echo "while true; do" >> /home/kiosk/.xsession
+echo "rsync -qr --delete --exclude='.Xauthority' /opt/kiosk/ /home/kiosk/" >> /home/kiosk/.xsession
+echo "google-chrome --no-default-browser-check --no-first-run --disable-infobars --disable-session-crashed-bubble --incognito --kiosk $url" >> /home/kiosk/.xsession
+echo "done" >> /home/kiosk/.xsession
+chmod +x /home/kiosk/.xsession
+ln -s /home/kiosk/.xsession /home/kiosk/.xinitrc
+chown kiosk:kiosk /home/kiosk/.xsession
+
+echo "[Desktop]" > /home/kiosk/.dmrc
+echo "Session=xinit-compat" >> /home/kiosk/.dmrc
+echo "Language=$LANG" >> /home/kiosk/.dmrc
+chown kiosk:kiosk /home/kiosk/.dmrc
+
+cp -r /home/kiosk /opt/
+chmod 755 /opt/kiosk
+chown kiosk:kiosk -R /opt/kiosk
+
+sed -i "s/GRUB_TIMEOUT=5/GRUB_TIMEOUT=0/" /etc/default/grub
+grub2-mkconfig --output=/boot/grub2/grub.cfg
