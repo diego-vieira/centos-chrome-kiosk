@@ -32,9 +32,6 @@ sed -i "s/email_to = root/email_to = sysadmin@rubysystems.net/" /etc/yum/yum-cro
 systemctl start yum-cron
 systemctl enable yum-cron
 
-# packages
-yum -y install matchbox-window-manager rsync install gnome-session-xsession install xorg-x11-xinit-session
-
 # chrome repo
 rm -f /etc/yum.repos.d/google-chrome.repo
 echo "[google-chrome]" >> /etc/yum.repos.d/google-chrome.repo
@@ -49,7 +46,6 @@ yum install -y google-chrome-stable
 
 autologin=$( cat /etc/gdm/custom.conf | grep AutomaticLoginEnable=true )
 loginname=$( cat /etc/gdm/custom.conf | grep AutomaticLogin=kiosk )
-xinit=$( cat /etc/gdm/custom.conf | grep xinit )
 
 if [ -n "$autologin" ]
 then
@@ -66,11 +62,7 @@ else
     sed -i '/AutomaticLoginEnable=true/aAutomaticLogin=kiosk' /etc/gdm/custom.conf
 fi
 
-if [ -n "$xinit" ]
-then
-else
-    sed -i '/AutomaticLogin=kiosk/aDefaultSession=xinit-compat.desktop' /etc/gdm/custom.conf
-fi
+sed -i '/AutomaticLogin=kiosk/aDefaultSession=xinit-compat.desktop' /etc/gdm/custom.conf
 
 # settings
 touch /var/lib/AccountsService/users/kiosk
