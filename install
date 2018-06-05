@@ -77,8 +77,14 @@ echo "SystemAccount=false" >> /var/lib/AccountsService/users/kiosk
 systemctl get-default
 systemctl set-default graphical.target
 echo "RUN_FIRSTBOOT=NO" > /etc/sysconfig/firstboot
-echo "xset s off" > /home/kiosk/.xsession
-echo "xset -dpms" >> /home/kiosk/.xsession
+
+## set screen to never go off
+# echo "xset s off" > /home/kiosk/.xsession
+# echo "xset -dpms" >> /home/kiosk/.xsession
+
+# set screen to never 30 seconds
+echo "xset s 30 30" > /home/kiosk/.xsession
+
 echo "matchbox-window-manager &" >> /home/kiosk/.xsession
 echo "while true; do" >> /home/kiosk/.xsession
 echo "rsync -qr --delete --exclude='.Xauthority' /opt/kiosk/ /home/kiosk/" >> /home/kiosk/.xsession
