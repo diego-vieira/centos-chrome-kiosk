@@ -49,6 +49,7 @@ yum install -y google-chrome-stable
 
 autologin=$( cat /etc/gdm/custom.conf | grep AutomaticLoginEnable=true )
 loginname=$( cat /etc/gdm/custom.conf | grep AutomaticLogin=kiosk )
+xinit=$( cat /etc/gdm/custom.conf | grep xinit )
 
 if [ -n "$autologin" ]
 then
@@ -65,8 +66,13 @@ else
     sed -i '/AutomaticLoginEnable=true/aAutomaticLogin=kiosk' /etc/gdm/custom.conf
 fi
 
+if [ -n "$xinit" ]
+then
+else
+    sed -i '/AutomaticLogin=kiosk/aDefaultSession=xinit-compat.desktop' /etc/gdm/custom.conf
+fi
+
 # settings
-sed -i '/AutomaticLogin=kiosk/aDefaultSession=xinit-compat.desktop' /etc/gdm/custom.conf
 touch /var/lib/AccountsService/users/kiosk
 chmod 644 /var/lib/AccountsService/users/kiosk
 echo "[User]" >> /var/lib/AccountsService/users/kiosk
@@ -79,11 +85,13 @@ systemctl set-default graphical.target
 echo "RUN_FIRSTBOOT=NO" > /etc/sysconfig/firstboot
 
 ## set screen to never go off
+# export DISPLAY=:0.0
 # echo "xset s off" > /home/kiosk/.xsession
 # echo "xset -dpms" >> /home/kiosk/.xsession
 
-# set screen to never 30 seconds
-echo "xset s 30 30" > /home/kiosk/.xsession
+# set screen to 30 minutes
+echo "xset s blank" > /home/kiosk/.xsession
+echo "xset dpms 1800 0 0" >> /home/kiosk/.xsession
 
 echo "matchbox-window-manager &" >> /home/kiosk/.xsession
 echo "while true; do" >> /home/kiosk/.xsession
